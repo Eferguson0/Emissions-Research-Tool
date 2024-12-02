@@ -564,38 +564,38 @@ async def chat():
     ### Remove to run
 
     async def run_crew_kickoffs(company_name):
-        # Create thread pool for CPU-bound operations
-        executor = ThreadPoolExecutor(max_workers=7)  # One worker per crew
+        executor = ThreadPoolExecutor(max_workers=7)
         
-        # Helper function that processes a single crew
         async def process_crew(crew, task_name):
-            # Run the CPU-bound crew.kickoff() in a thread pool
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(executor, crew.kickoff)
-            
             response_raw = format_task.output.raw
             cleaned = response_raw.strip('```html').strip('```').strip()
             return task_name, escape_special_characters(cleaned)
         
         try:
-            # Create and run all tasks concurrently
-            tasks = [
-                asyncio.create_task(process_crew(overview_crew, "overview")),
-                asyncio.create_task(process_crew(scopes_crew, "scopes")),
-                asyncio.create_task(process_crew(tools_partners_crew, "tools-partners")),
-                asyncio.create_task(process_crew(reporting_crew, "reporting")),
-                asyncio.create_task(process_crew(compliance_crew, "compliance")),
-                asyncio.create_task(process_crew(targets_crew, "targets")),
-                asyncio.create_task(process_crew(decarbonization_crew, "decarbonization"))
+            # Process crews sequentially with delays
+            results = []
+            crews = [
+                (overview_crew, "overview"),
+                (scopes_crew, "scopes"),
+                (tools_partners_crew, "tools-partners"),
+                (reporting_crew, "reporting"),
+                (compliance_crew, "compliance"),
+                (targets_crew, "targets"),
+                (decarbonization_crew, "decarbonization")
             ]
             
-            # Wait for all tasks to complete
-            results = await asyncio.gather(*tasks)
+            for crew, task_name in crews:
+                # Process one crew
+                result = await process_crew(crew, task_name)
+                results.append(result)
+                # Wait 20 seconds before starting the next crew
+                await asyncio.sleep(20)
             
             return {task_name: response for task_name, response in results}
             
         finally:
-            # Clean up the executor
             executor.shutdown(wait=False)
 
     # Run crew kickoffs concurrently
