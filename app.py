@@ -564,14 +564,14 @@ async def chat():
     ### Remove to run
 
     async def run_crew_kickoffs(company_name):
-        # Create thread pool for CPU-bound operations
-        executor = ThreadPoolExecutor(max_workers=7)  # One worker per crew
+        # Move executor creation outside the function
+        global executor
+        if not hasattr(run_crew_kickoffs, 'executor'):
+            run_crew_kickoffs.executor = ThreadPoolExecutor(max_workers=7)
         
-        # Helper function that processes a single crew
         async def process_crew(crew, task_name):
-            # Run the CPU-bound crew.kickoff() in a thread pool
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(executor, crew.kickoff)
+            await loop.run_in_executor(run_crew_kickoffs.executor, crew.kickoff)
             
             response_raw = format_task.output.raw
             cleaned = response_raw.strip('```html').strip('```').strip()
@@ -599,9 +599,9 @@ async def chat():
             
             return {task_name: response for task_name, response in results}
             
-        finally:
-            # Clean up the executor
-            executor.shutdown(wait=False)
+        except Exception as e:
+            print(f"Error in run_crew_kickoffs: {e}")
+            raise
 
     # Run crew kickoffs concurrently
     global consolidated_report
