@@ -50,6 +50,9 @@ gpt4_llm = ChatOpenAI(
 conversation_history = []
 consolidated_report = {}
 
+# At the top of the file with other imports
+executor = ThreadPoolExecutor(max_workers=7)
+
 def escape_special_characters(content):
     # Escape problematic characters in JSON strings
     content = content.replace("\\", "\\\\")  # Escape backslashes
@@ -564,21 +567,15 @@ async def chat():
     ### Remove to run
 
     async def run_crew_kickoffs(company_name):
-        # Move executor creation outside the function
-        global executor
-        if not hasattr(run_crew_kickoffs, 'executor'):
-            run_crew_kickoffs.executor = ThreadPoolExecutor(max_workers=7)
-        
         async def process_crew(crew, task_name):
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(run_crew_kickoffs.executor, crew.kickoff)
+            await loop.run_in_executor(executor, crew.kickoff)
             
             response_raw = format_task.output.raw
             cleaned = response_raw.strip('```html').strip('```').strip()
             return task_name, escape_special_characters(cleaned)
         
         try:
-            # Create tasks with staggered starts
             tasks = []
             crews = [
                 (overview_crew, "overview"),
@@ -594,9 +591,7 @@ async def chat():
                 await asyncio.sleep(20 if i > 0 else 0)  # No delay for first crew
                 tasks.append(asyncio.create_task(process_crew(crew, task_name)))
             
-            # Wait for all tasks to complete
             results = await asyncio.gather(*tasks)
-            
             return {task_name: response for task_name, response in results}
             
         except Exception as e:
