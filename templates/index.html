@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Emissions Analysis</title>
+    <!-- Link to Google Fonts for Halant -->
+    <link href="https://fonts.googleapis.com/css2?family=Halant:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Halant', serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(90deg, #4A7FB6, #6FA8DC, #82B3E5, #5D95CA);
+            background-size: 600% 600%;
+            animation: randomGradient 20s ease-in-out infinite alternate;
+            color: #ffffff;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        @keyframes randomGradient {
+            0% {
+                background-position: 0% 0%;
+            }
+            25% {
+                background-position: 50% 100%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            75% {
+                background-position: 0% 100%;
+            }
+            100% {
+                background-position: 100% 0%;
+            }
+        }
+        h1 {
+            color: #ffffff;
+            text-align: center;
+            margin-top: 40px;
+            margin-bottom: 30px;
+            font-size: 48px;
+            position: relative;
+            top: 0; /* Keeps the heading near the top */
+        }
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            width: 100%;
+            max-width: 800px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        label {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #ffffff;
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+        }
+        input[type="text"] {
+            padding: 12px;
+            background-color: #ffffff;
+            border-radius: 4px;
+            font-size: 20px;
+            color: #3D6D9B;
+            border: none;
+            margin-bottom: 20px;
+            width: 300px;
+            text-align: center;
+            font-family: 'Halant', serif;
+        }
+        input[type="text"]::placeholder {
+            color: #3D6D9B;
+            opacity: 1;
+            font-style: italic;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 20px;
+            font-family: 'Halant', serif;
+        }
+        button:hover {
+            background-color: #3D6D9B;
+            color: #ffffff;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Emissions Reduction Strategy Tool</h1>
+    <div class="form-container">
+        <form action="/chat" method="POST">
+            <label for="company">Enter the name of an organization (company, government entity, or other) for information on their current or potential emissions reduction strategy:</label>
+            <input type="text" id="company" name="company" placeholder="Ex. Microsoft" required>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+    <script>
+        const placeholders = [
+            "Ex. Microsoft",
+            "Ex. New York City",
+            "Ex. Stanford University",
+            "Ex. Amazon",
+            "Ex. State of California",            
+            "Ex. Con Edison"
+        ];
+        
+        let currentIndex = 0;
+        const inputField = document.getElementById('company');
+        
+        function updatePlaceholder() {
+            inputField.placeholder = placeholders[currentIndex];
+            currentIndex = (currentIndex + 1) % placeholders.length;
+        }
+        
+        // Change placeholder every 3 seconds
+        setInterval(updatePlaceholder, 3000);
+    </script>
+</body>
+</html>

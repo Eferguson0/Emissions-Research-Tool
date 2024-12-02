@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BreezyAI</title>
+    <!-- Link to Google Fonts for Halant -->
+    <link href="https://fonts.googleapis.com/css2?family=Halant:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Halant', serif;
+            margin: 0;
+            padding: 20px 20px 40px 20px;
+            display: flex;
+            flex-direction: row;
+            height: calc(100vh - 40px);
+            background: linear-gradient(90deg, #4A7FB6, #6FA8DC, #82B3E5, #5D95CA);
+            background-size: 600% 600%;
+            animation: randomGradient 20s ease-in-out infinite alternate;
+            color: #ffffff;
+            box-sizing: border-box; /* Ensure padding doesn't add to the element's size */
+        }
+        @keyframes randomGradient {
+            0% { background-position: 0% 0%; }
+            25% { background-position: 50% 100%; }
+            50% { background-position: 100% 50%; }
+            75% { background-position: 0% 100%; }
+            100% { background-position: 100% 0%; }
+        }
+        .main-content {
+            flex: 2;
+            padding-right: 20px;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 60px);
+            box-sizing: border-box; /* Ensure padding doesn't add to the height */
+        }
+        .analysis-container {
+            display: flex;
+            flex-direction: row;
+            width: 100%; /* Full width of the main content */
+            margin-bottom: 10px;
+            height: calc(100% - 84px); /* Adjusted height considering the heading */
+        }
+        .button-container {
+            flex: 1; /* 1/3 of the container */
+            display: flex;
+            flex-direction: column; /* Stack buttons vertically */
+            align-items: center; /* Center the button vertically */
+            justify-content: flex-start; /* Align button to the left */
+            gap: 10px; /* Add spacing between buttons */
+            height: calc(100% - 84px); /* Adjusted height considering the heading */
+        }
+        .link-container {
+            display: flex;
+            flex-direction: column; /* Stack buttons vertically */
+            align-items: flex-start; /* Align links to the left */
+            width: 100%; /* Full width of the main content */
+            margin-top: 20px;
+        }
+        .response {
+            flex: 2; /* 2/3 of the container */
+            display: block; /* Hidden by default */
+            margin-left: 20px; /* Space between the button and the response */
+            padding: 20px;
+            background-color: rgba(61, 109, 155, 0.8);
+            border-radius: 10px;
+            overflow-y: auto;
+            line-height: 1.6;
+            max-height: 100%; /* Ensure it respects the parent container's height */
+            box-sizing: border-box;
+            font-size: 18px; /* Increase this size as needed */
+        }
+        .chat-window {
+            flex: 1; /* 25% width */
+            height: calc(100vh - 60px);
+            background-color: rgba(61, 109, 155, 0.8);
+            border-left: 2px solid #ffffff;
+            padding: 0px 20px 20px 20px; /* Reduced top padding */
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: hidden; /* Allow scrolling for overflow content */
+            box-sizing: border-box; /* Ensure padding doesn't add to the height */
+        }
+        #chat-content {
+            flex: 1; /* Takes up the remaining space between header and form */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* Align messages to the bottom initially */
+            overflow-y: auto;
+            margin-top: 0px; /* Space between header and messages */
+        }
+        #chat-container {
+            display: flex;
+            flex-direction: column; /* New messages appear at the bottom */
+            overflow-y: auto;
+            max-height: 100%;
+            padding: 0px 10px 10px 10px;
+        }
+        .user-message, .assistant-message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            color: #ffffff;
+        }
+        .user-message {
+            background-color: #4A7FB6;
+            align-self: flex-end;
+        }
+        .assistant-message {
+            background-color: transparent;
+            align-self: flex-start;
+        }
+        #chat-form {
+            display: flex;
+            gap: 10px;
+        }
+        #chat-input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            font-family: 'Halant', serif; /* Matching font */
+            color: #3D6D9B; /* Matching text color */
+            background-color: #ffffff; /* Matching background color */
+            text-align: left;
+            font-size: 18px; /* Increase this size as needed */
+        }
+        #chat-input::placeholder {
+            color: #3D6D9B; /* Matching placeholder color */
+            opacity: 1;
+        }
+        #chat-form button {
+            padding: 10px 15px;
+            border: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Halant', serif;
+            font-size: 18px; /* Increase this size as needed */
+        }
+        #chat-form button:hover {
+            background-color: #3D6D9B;
+            color: #ffffff;
+            opacity: 1;
+        }
+        results_header {
+            color: #ffffff;
+            text-align: left;
+            margin-top: 15px; /* Add this line for top margin */
+            margin-bottom: 10px;
+            font-size: 40px;
+            font-weight: bold; /* Explicitly make it bold like <h1> */
+        }
+        h1 {
+            color: #ffffff;
+            text-align: left;
+            margin-top: 15px; /* Add this line for top margin */
+            margin-bottom: 10px;
+            font-size: 26px;
+        }
+        h2 {
+            color: #ffffff;
+            text-align: left;
+            margin-top: 15px; /* Add this line for top margin */
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        .toggle-button {
+            width: 100%; /* Make buttons take full width of the button container */
+            padding: 12px 24px;
+            background-color: rgba(255, 255, 255, 0.1); /* Match initial color of the submit button */
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 20px;
+            font-family: 'Halant', serif;
+        }
+        .toggle-button:hover {
+            background-color: #3D6D9B; /* Match hover color */
+            color: #ffffff; /* Keep text color consistent */
+            opacity: 1;
+        }
+        .toggle-button.active {
+            background-color: #3D6D9B; /* Active color (same as hover) */
+            color: #ffffff;
+        }
+        .download-link {
+            color: #cce7ff;
+            text-decoration: none;
+            font-size: 24px;
+            margin-top: 25px;
+        }
+        .download-link:hover {
+            text-decoration: underline; /* Optional underline on hover */
+        }
+        .back-link {
+            color: #cce7ff;
+            text-decoration: none;
+            font-size: 18px;
+            margin-top: 0px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .disclaimer-container {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            padding: 10px 20px;
+            color: #ffffff;
+            font-size: 14px;
+            margin: 0;
+            background: transparent;
+            text-align: right;
+            z-index: 1000;  /* Ensure it stays on top */
+        }
+    </style>
+    <script>
+        // Declare consolidatedReport once globally
+        let consolidatedReport = {};
+        try {
+            // Assign the JSON-parsed consolidated report
+            consolidatedReport = JSON.parse(`{{ consolidated_report | tojson | safe }}`);
+            console.log("Consolidated Report:", consolidatedReport);
+        } catch (error) {
+            console.error("Error parsing consolidatedReport:", error);
+        }
+
+        // Initialize the page to show the overview by default
+        document.addEventListener("DOMContentLoaded", function() {
+            toggleResponse("overview");
+        });
+
+        function toggleResponse(topic) {
+            // Remove 'active' class from all buttons
+            const buttons = document.querySelectorAll('.toggle-button');
+            buttons.forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+
+            // Add 'active' class to the clicked button
+            const activeButton = document.querySelector(`button[data-topic="${topic}"]`);
+            if (activeButton) {
+                activeButton.classList.add('active');
+            }
+
+            // Update the response content
+            const responseDiv = document.getElementById("responseDiv");
+            responseDiv.style.display = 'block';
+
+            // Debug logging to check what's being received
+            console.log(`Topic: ${topic}`);
+            console.log(`Content:`, consolidatedReport[topic]);
+
+            // Ensure content is properly sanitized and formatted
+            if (consolidatedReport[topic]) {
+                // If the content is HTML, insert it directly
+                responseDiv.innerHTML = consolidatedReport[topic];
+            } else {
+                responseDiv.innerHTML = "<p>No content available for this topic.</p>";
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="main-content">
+        <results_header>Results for {{ company_name }}</results_header>
+        <div class="analysis-container">
+            <div class="button-container">
+                <button class="toggle-button" data-topic="overview" onclick="toggleResponse('overview')">Overview</button>
+                <button class="toggle-button" data-topic="scopes" onclick="toggleResponse('scopes')">Scopes 1, 2, & 3</button>
+                <button class="toggle-button" data-topic="tools-partners" onclick="toggleResponse('tools-partners')">Teams, Tools, & Partners</button>
+                <button class="toggle-button" data-topic="reporting" onclick="toggleResponse('reporting')">Public Reporting</button>
+                <button class="toggle-button" data-topic="compliance" onclick="toggleResponse('compliance')">Regulatory Compliance</button>
+                <button class="toggle-button" data-topic="targets" onclick="toggleResponse('targets')">Reduction Targets</button>
+                <button class="toggle-button" data-topic="decarbonization" onclick="toggleResponse('decarbonization')">Decarbonization</button>
+                <div class="link-container">
+                    <a class="download-link" href="#">Download PDF report</a>
+                    <a class="back-link" href="/">Reset</a>
+                </div>
+            </div>             
+            <div id="responseDiv" class="response">
+                {{ response | safe }}
+            </div>                
+        </div>
+    </div>
+    <div class="chat-window">
+        <h1>Explore Further</h1>
+        <div id="chat-content">
+            <div id="chat-container">
+                <!-- Chat messages will appear here -->
+            </div>
+        </div>
+        <form id="chat-form">
+            <input type="text" id="chat-input" placeholder="Ask about {{ company_name }}'s analysis..." required>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
+    <!-- JavaScript code for handling chat functionality -->
+    <script>
+        // Handle the chat form submission
+        document.getElementById("chat-form").addEventListener("submit", function(event) {
+            event.preventDefault(); // Prevent the page from reloading
+
+            const chatInput = document.getElementById("chat-input");
+            const userMessage = chatInput.value;
+
+            // Add user message to chat container
+            const chatContainer = document.getElementById("chat-container");
+            const userMessageElement = document.createElement("div");
+            userMessageElement.classList.add("user-message");
+            userMessageElement.textContent = userMessage;
+            chatContainer.appendChild(userMessageElement);
+
+            // Clear the input field
+            chatInput.value = "";
+
+            // Send message to the server
+            fetch("/send_message", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message: userMessage })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Add assistant's response to chat container
+                const assistantMessageElement = document.createElement("div");
+                assistantMessageElement.classList.add("assistant-message");
+                assistantMessageElement.textContent = data.response;
+                chatContainer.appendChild(assistantMessageElement);
+
+                // Scroll chat to the bottom
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            })
+            .catch(error => console.error("Error:", error));
+        });
+    </script>
+    <div class="disclaimer-container">
+        Generated content may be inaccurate. Check important info.
+    </div>
+</body>
+</html>
