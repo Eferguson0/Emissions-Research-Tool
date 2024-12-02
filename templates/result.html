@@ -260,6 +260,7 @@
             if (consolidatedReport[topic]) {
                 // If the content is HTML, insert it directly
                 responseDiv.innerHTML = consolidatedReport[topic];
+                responseDiv.scrollTop = 0;
             } else {
                 responseDiv.innerHTML = "<p>No content available for this topic.</p>";
             }
