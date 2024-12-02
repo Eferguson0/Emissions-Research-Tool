@@ -564,18 +564,22 @@ async def chat():
     ### Remove to run
 
     async def run_crew_kickoffs(company_name):
-        executor = ThreadPoolExecutor(max_workers=7)
+        # Create thread pool for CPU-bound operations
+        executor = ThreadPoolExecutor(max_workers=7)  # One worker per crew
         
+        # Helper function that processes a single crew
         async def process_crew(crew, task_name):
+            # Run the CPU-bound crew.kickoff() in a thread pool
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(executor, crew.kickoff)
+            
             response_raw = format_task.output.raw
             cleaned = response_raw.strip('```html').strip('```').strip()
             return task_name, escape_special_characters(cleaned)
         
         try:
-            # Process crews sequentially with delays
-            results = []
+            # Create tasks with staggered starts
+            tasks = []
             crews = [
                 (overview_crew, "overview"),
                 (scopes_crew, "scopes"),
@@ -586,16 +590,17 @@ async def chat():
                 (decarbonization_crew, "decarbonization")
             ]
             
-            for crew, task_name in crews:
-                # Process one crew
-                result = await process_crew(crew, task_name)
-                results.append(result)
-                # Wait 20 seconds before starting the next crew
-                await asyncio.sleep(20)
+            for i, (crew, task_name) in enumerate(crews):
+                await asyncio.sleep(20 if i > 0 else 0)  # No delay for first crew
+                tasks.append(asyncio.create_task(process_crew(crew, task_name)))
+            
+            # Wait for all tasks to complete
+            results = await asyncio.gather(*tasks)
             
             return {task_name: response for task_name, response in results}
             
         finally:
+            # Clean up the executor
             executor.shutdown(wait=False)
 
     # Run crew kickoffs concurrently
