@@ -566,103 +566,81 @@ async def chat():
 
     async def run_crew_kickoffs(company_name):
         print(f"Starting run_crew_kickoffs at {datetime.now()}")
-        executor = ThreadPoolExecutor(max_workers=2)  # Only 2 workers
         
-        async def process_crew(crew, task_name):
-            start_time = datetime.now()
-            print(f"[{start_time}] Starting crew: {task_name}")
+        # Use context manager for ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            async def process_crew(crew, task_name):
+                start_time = datetime.now()
+                print(f"[{start_time}] Starting crew: {task_name}")
+                
+                try:
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(executor, crew.kickoff)
+                    
+                    response_raw = format_task.output.raw
+                    cleaned = response_raw.strip('```html').strip('```').strip()
+                    
+                    end_time = datetime.now()
+                    duration = (end_time - start_time).total_seconds()
+                    print(f"[{end_time}] Completed crew: {task_name} (Duration: {duration}s)")
+                    return task_name, escape_special_characters(cleaned)
+                except Exception as e:
+                    print(f"Error in crew {task_name}: {str(e)}")
+                    raise
             
             try:
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(executor, crew.kickoff)
+                crews = [
+                    (overview_crew, "overview"),
+                    (scopes_crew, "scopes"),
+                    (tools_partners_crew, "tools-partners"),
+                    (reporting_crew, "reporting"),
+                    (compliance_crew, "compliance"),
+                    (targets_crew, "targets"),
+                    (decarbonization_crew, "decarbonization")
+                ]
                 
-                response_raw = format_task.output.raw
-                cleaned = response_raw.strip('```html').strip('```').strip()
+                results = {}
+                active_tasks = []
+                remaining_crews = crews[2:]  # Store remaining crews after initial 2
                 
-                end_time = datetime.now()
-                duration = (end_time - start_time).total_seconds()
-                print(f"[{end_time}] Completed crew: {task_name} (Duration: {duration}s)")
-                return task_name, escape_special_characters(cleaned)
-            except Exception as e:
-                print(f"Error in crew {task_name}: {str(e)}")
-                raise
-        
-        try:
-            crews = [
-                (overview_crew, "overview"),
-                (scopes_crew, "scopes"),
-                (tools_partners_crew, "tools-partners"),
-                (reporting_crew, "reporting"),
-                (compliance_crew, "compliance"),
-                (targets_crew, "targets"),
-                (decarbonization_crew, "decarbonization")
-            ]
-            
-            results = {}
-            active_tasks = []
-            remaining_crews = crews[2:]  # Store remaining crews after initial 2
-            
-            # Start first 2 crews immediately
-            for crew, task_name in crews[:2]:
-                print(f"[{datetime.now()}] Scheduling initial crew: {task_name}")
-                task = asyncio.create_task(process_crew(crew, task_name))
-                active_tasks.append(task)
-            
-            # Process remaining crews as tasks complete
-            while active_tasks or remaining_crews:
-                if active_tasks:
-                    # Wait for any task to complete
-                    done, pending = await asyncio.wait(active_tasks, return_when=asyncio.FIRST_COMPLETED)
-                    active_tasks = list(pending)
+                # Start first 2 crews immediately
+                for crew, task_name in crews[:2]:
+                    print(f"[{datetime.now()}] Scheduling initial crew: {task_name}")
+                    task = asyncio.create_task(process_crew(crew, task_name))
+                    active_tasks.append(task)
+                
+                # Process remaining crews as tasks complete
+                while active_tasks or remaining_crews:
+                    if active_tasks:
+                        # Wait for any task to complete
+                        done, pending = await asyncio.wait(active_tasks, return_when=asyncio.FIRST_COMPLETED)
+                        active_tasks = list(pending)
+                        
+                        # Process completed tasks
+                        for task in done:
+                            try:
+                                task_name, result = await task
+                                results[task_name] = result
+                                
+                                # Start a new crew if any remain
+                                if remaining_crews:
+                                    next_crew, next_task_name = remaining_crews.pop(0)
+                                    print(f"[{datetime.now()}] Scheduling next crew: {next_task_name}")
+                                    new_task = asyncio.create_task(process_crew(next_crew, next_task_name))
+                                    active_tasks.append(new_task)
+                            except Exception as e:
+                                print(f"Error processing task result: {str(e)}")
+                                raise
+                
+                return results
                     
-                    # Process completed tasks
-                    for task in done:
-                        try:
-                            task_name, result = await task
-                            results[task_name] = result
-                            
-                            # Start a new crew if any remain
-                            if remaining_crews:
-                                next_crew, next_task_name = remaining_crews.pop(0)
-                                print(f"[{datetime.now()}] Scheduling next crew: {next_task_name}")
-                                new_task = asyncio.create_task(process_crew(next_crew, next_task_name))
-                                active_tasks.append(new_task)
-                        except Exception as e:
-                            print(f"Error processing task result: {str(e)}")
-                            raise
-            
-            return results
-                
-        except Exception as e:
-            print(f"[{datetime.now()}] Error in run_crew_kickoffs: {str(e)}")
-            raise
-        finally:
-            # Only shutdown the executor after all tasks are complete
-            print(f"[{datetime.now()}] All tasks complete, shutting down executor")
-            executor.shutdown(wait=True)  # Changed to wait=True
-            print(f"[{datetime.now()}] Executor shutdown complete")
+            except Exception as e:
+                print(f"[{datetime.now()}] Error in run_crew_kickoffs: {str(e)}")
+                raise
 
     # Run crew kickoffs concurrently
     global consolidated_report
-    # consolidated_report = {
-    #     "overview": overview_response_formatted,
-    #     "scopes": scopes_response_formatted,
-    #     "tools-partners": tools_partners_response_formatted,
-    #     "reporting": reporting_response_formatted,
-    #     "compliance": compliance_response_formatted,
-    #     "targets": targets_response_formatted,
-    #     "decarbonization": decarbonization_response_formatted,
-
-        # "overview": "<p>This is a placeholder for the Overview content.</p>",
-        # "scopes": "<p>This is a placeholder for the Scopes content.</p>",
-        # "tools-partners": "<p>This is a placeholder for the Teams, Tools, & Partners content.</p>",
-        # "reporting": "<p>This is a placeholder for the Reporting content.</p>",
-        # "compliance": "<p>This is a placeholder for the Compliance content.</p>",
-        # "targets": "<p>This is a placeholder for the Reduction Targets content.</p>",
-        # "decarbonization": "<p>This is a placeholder for the Decarbonization content.</p>",
-    # }
     consolidated_report = await run_crew_kickoffs(company_name)
-
     
     return render_template(
         'result.html',
