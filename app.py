@@ -567,8 +567,9 @@ async def chat():
     async def run_crew_kickoffs(company_name):
         print(f"Starting run_crew_kickoffs at {datetime.now()}")
         
-        # Use context manager for ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        # Create executor outside of any task processing
+        executor = ThreadPoolExecutor(max_workers=2)
+        try:
             async def process_crew(crew, task_name):
                 start_time = datetime.now()
                 print(f"[{start_time}] Starting crew: {task_name}")
@@ -588,60 +589,62 @@ async def chat():
                     print(f"Error in crew {task_name}: {str(e)}")
                     raise
             
-            try:
-                crews = [
-                    (overview_crew, "overview"),
-                    (scopes_crew, "scopes"),
-                    (tools_partners_crew, "tools-partners"),
-                    (reporting_crew, "reporting"),
-                    (compliance_crew, "compliance"),
-                    (targets_crew, "targets"),
-                    (decarbonization_crew, "decarbonization")
-                ]
-                
-                results = {}
-                active_tasks = []
-                remaining_crews = crews[2:]  # Store remaining crews after initial 2
-                
-                # Start first 2 crews immediately
-                for crew, task_name in crews[:2]:
-                    print(f"[{datetime.now()}] Scheduling initial crew: {task_name}")
-                    task = asyncio.create_task(process_crew(crew, task_name))
-                    active_tasks.append(task)
-                
-                # Process remaining crews as tasks complete
-                while active_tasks or remaining_crews:
-                    if active_tasks:
-                        # Wait for any task to complete
-                        done, pending = await asyncio.wait(active_tasks, return_when=asyncio.FIRST_COMPLETED)
-                        active_tasks = list(pending)
-                        
-                        # Process completed tasks
-                        for task in done:
-                            try:
-                                task_name, result = await task
-                                results[task_name] = result
-                                
-                                # Start a new crew if any remain
-                                if remaining_crews:
-                                    next_crew, next_task_name = remaining_crews.pop(0)
-                                    print(f"[{datetime.now()}] Scheduling next crew: {next_task_name}")
-                                    new_task = asyncio.create_task(process_crew(next_crew, next_task_name))
-                                    active_tasks.append(new_task)
-                            except Exception as e:
-                                print(f"Error processing task result: {str(e)}")
-                                raise
-                
-                return results
+            crews = [
+                (overview_crew, "overview"),
+                (scopes_crew, "scopes"),
+                (tools_partners_crew, "tools-partners"),
+                (reporting_crew, "reporting"),
+                (compliance_crew, "compliance"),
+                (targets_crew, "targets"),
+                (decarbonization_crew, "decarbonization")
+            ]
+            
+            results = {}
+            active_tasks = []
+            remaining_crews = crews[2:]  # Store remaining crews after initial 2
+            
+            # Start first 2 crews immediately
+            for crew, task_name in crews[:2]:
+                print(f"[{datetime.now()}] Scheduling initial crew: {task_name}")
+                task = asyncio.create_task(process_crew(crew, task_name))
+                active_tasks.append(task)
+            
+            # Process remaining crews as tasks complete
+            while active_tasks or remaining_crews:
+                if active_tasks:
+                    # Wait for any task to complete
+                    done, pending = await asyncio.wait(active_tasks, return_when=asyncio.FIRST_COMPLETED)
+                    active_tasks = list(pending)
                     
-            except Exception as e:
-                print(f"[{datetime.now()}] Error in run_crew_kickoffs: {str(e)}")
-                raise
+                    # Process completed tasks
+                    for task in done:
+                        try:
+                            task_name, result = await task
+                            results[task_name] = result
+                            
+                            # Start a new crew if any remain
+                            if remaining_crews:
+                                next_crew, next_task_name = remaining_crews.pop(0)
+                                print(f"[{datetime.now()}] Scheduling next crew: {next_task_name}")
+                                new_task = asyncio.create_task(process_crew(next_crew, next_task_name))
+                                active_tasks.append(new_task)
+                        except Exception as e:
+                            print(f"Error processing task result: {str(e)}")
+                            raise
+
+            return results
+                    
+        except Exception as e:
+            print(f"[{datetime.now()}] Error in run_crew_kickoffs: {str(e)}")
+            raise
+        finally:
+            # Only shut down the executor after all tasks are complete
+            executor.shutdown(wait=True)
 
     # Run crew kickoffs concurrently
     global consolidated_report
     consolidated_report = await run_crew_kickoffs(company_name)
-    
+
     return render_template(
         'result.html',
         company_name=company_name,
