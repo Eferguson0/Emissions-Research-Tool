@@ -3,7 +3,6 @@ import os
 from html import escape
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 
 # Third-party imports
 from flask import Flask, render_template, request, jsonify
@@ -565,31 +564,22 @@ async def chat():
     ### Remove to run
 
     async def run_crew_kickoffs(company_name):
-        print(f"Starting run_crew_kickoffs at {datetime.now()}")
+        # Create thread pool for CPU-bound operations
+        executor = ThreadPoolExecutor(max_workers=5)  # One worker per crew
         
-        # Global executor that won't be closed by context manager
-        executor = ThreadPoolExecutor(max_workers=2)
+        # Helper function that processes a single crew
+        async def process_crew(crew, task_name):
+            # Run the CPU-bound crew.kickoff() in a thread pool
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(executor, crew.kickoff)
+            
+            response_raw = format_task.output.raw
+            cleaned = response_raw.strip('```html').strip('```').strip()
+            return task_name, escape_special_characters(cleaned)
         
         try:
-            async def process_crew(crew, task_name):
-                start_time = datetime.now()
-                print(f"[{start_time}] Starting crew: {task_name}")
-                
-                try:
-                    loop = asyncio.get_event_loop()
-                    await loop.run_in_executor(executor, crew.kickoff)
-                    
-                    response_raw = format_task.output.raw
-                    cleaned = response_raw.strip('```html').strip('```').strip()
-                    
-                    end_time = datetime.now()
-                    duration = (end_time - start_time).total_seconds()
-                    print(f"[{end_time}] Completed crew: {task_name} (Duration: {duration}s)")
-                    return task_name, escape_special_characters(cleaned)
-                except Exception as e:
-                    print(f"Error in crew {task_name}: {str(e)}")
-                    raise
-
+            # Create tasks with staggered starts
+            tasks = []
             crews = [
                 (overview_crew, "overview"),
                 (scopes_crew, "scopes"),
@@ -599,38 +589,41 @@ async def chat():
                 (targets_crew, "targets"),
                 (decarbonization_crew, "decarbonization")
             ]
-
-            results = {}
             
-            # Process crews sequentially in groups of 2
-            for i in range(0, len(crews), 2):
-                batch = crews[i:i+2]
-                active_tasks = []
-                
-                # Start current batch
-                for crew, task_name in batch:
-                    print(f"[{datetime.now()}] Scheduling crew: {task_name}")
-                    task = asyncio.create_task(process_crew(crew, task_name))
-                    active_tasks.append(task)
-                
-                # Wait for current batch to complete
-                if active_tasks:
-                    completed = await asyncio.gather(*active_tasks)
-                    for task_name, result in completed:
-                        results[task_name] = result
-
-            return results
-                    
-        except Exception as e:
-            print(f"[{datetime.now()}] Error in run_crew_kickoffs: {str(e)}")
-            raise
+            for i, (crew, task_name) in enumerate(crews):
+                await asyncio.sleep(15 if i > 0 else 0)  # No delay for first crew
+                tasks.append(asyncio.create_task(process_crew(crew, task_name)))
+            
+            # Wait for all tasks to complete
+            results = await asyncio.gather(*tasks)
+            
+            return {task_name: response for task_name, response in results}
+            
         finally:
-            executor.shutdown(wait=True)
+            executor.shutdown(wait=False)
 
     # Run crew kickoffs concurrently
     global consolidated_report
+    # consolidated_report = {
+    #     "overview": overview_response_formatted,
+    #     "scopes": scopes_response_formatted,
+    #     "tools-partners": tools_partners_response_formatted,
+    #     "reporting": reporting_response_formatted,
+    #     "compliance": compliance_response_formatted,
+    #     "targets": targets_response_formatted,
+    #     "decarbonization": decarbonization_response_formatted,
+
+        # "overview": "<p>This is a placeholder for the Overview content.</p>",
+        # "scopes": "<p>This is a placeholder for the Scopes content.</p>",
+        # "tools-partners": "<p>This is a placeholder for the Teams, Tools, & Partners content.</p>",
+        # "reporting": "<p>This is a placeholder for the Reporting content.</p>",
+        # "compliance": "<p>This is a placeholder for the Compliance content.</p>",
+        # "targets": "<p>This is a placeholder for the Reduction Targets content.</p>",
+        # "decarbonization": "<p>This is a placeholder for the Decarbonization content.</p>",
+    # }
     consolidated_report = await run_crew_kickoffs(company_name)
 
+    
     return render_template(
         'result.html',
         company_name=company_name,
