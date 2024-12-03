@@ -605,7 +605,8 @@ async def chat():
             # Start first 2 crews immediately
             for crew, task_name in crews[:2]:
                 print(f"[{datetime.now()}] Scheduling initial crew: {task_name}")
-                active_tasks.append(asyncio.create_task(process_crew(crew, task_name)))
+                task = asyncio.create_task(process_crew(crew, task_name))
+                active_tasks.append(task)
             
             # Process remaining crews as tasks complete
             while active_tasks or remaining_crews:
@@ -616,14 +617,19 @@ async def chat():
                     
                     # Process completed tasks
                     for task in done:
-                        task_name, result = await task
-                        results[task_name] = result
-                        
-                        # Start a new crew if any remain
-                        if remaining_crews:
-                            next_crew, next_task_name = remaining_crews.pop(0)
-                            print(f"[{datetime.now()}] Scheduling next crew: {next_task_name}")
-                            active_tasks.append(asyncio.create_task(process_crew(next_crew, next_task_name)))
+                        try:
+                            task_name, result = await task
+                            results[task_name] = result
+                            
+                            # Start a new crew if any remain
+                            if remaining_crews:
+                                next_crew, next_task_name = remaining_crews.pop(0)
+                                print(f"[{datetime.now()}] Scheduling next crew: {next_task_name}")
+                                new_task = asyncio.create_task(process_crew(next_crew, next_task_name))
+                                active_tasks.append(new_task)
+                        except Exception as e:
+                            print(f"Error processing task result: {str(e)}")
+                            raise
             
             return results
                 
@@ -631,8 +637,10 @@ async def chat():
             print(f"[{datetime.now()}] Error in run_crew_kickoffs: {str(e)}")
             raise
         finally:
-            executor.shutdown(wait=False)
-            print(f"[{datetime.now()}] Executor shutdown")
+            # Only shutdown the executor after all tasks are complete
+            print(f"[{datetime.now()}] All tasks complete, shutting down executor")
+            executor.shutdown(wait=True)  # Changed to wait=True
+            print(f"[{datetime.now()}] Executor shutdown complete")
 
     # Run crew kickoffs concurrently
     global consolidated_report
