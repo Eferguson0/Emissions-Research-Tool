@@ -3,6 +3,7 @@ import os
 from html import escape
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 # Third-party imports
 from flask import Flask, render_template, request, jsonify
@@ -49,9 +50,6 @@ gpt4_llm = ChatOpenAI(
 # Store conversation history in memory
 conversation_history = []
 consolidated_report = {}
-
-# At the top of the file with other imports
-executor = ThreadPoolExecutor(max_workers=7)
 
 def escape_special_characters(content):
     # Escape problematic characters in JSON strings
@@ -567,12 +565,22 @@ async def chat():
     ### Remove to run
 
     async def run_crew_kickoffs(company_name):
+        print(f"Starting run_crew_kickoffs at {datetime.now()}")  # Added timestamp
+        executor = ThreadPoolExecutor(max_workers=7)
+        
         async def process_crew(crew, task_name):
+            start_time = datetime.now()
+            print(f"[{start_time}] Starting crew: {task_name}")
+            
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(executor, crew.kickoff)
             
             response_raw = format_task.output.raw
             cleaned = response_raw.strip('```html').strip('```').strip()
+            
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            print(f"[{end_time}] Completed crew: {task_name} (Duration: {duration}s)")
             return task_name, escape_special_characters(cleaned)
         
         try:
@@ -588,15 +596,23 @@ async def chat():
             ]
             
             for i, (crew, task_name) in enumerate(crews):
-                await asyncio.sleep(20 if i > 0 else 0)  # No delay for first crew
+                print(f"[{datetime.now()}] Scheduling crew {i+1}/7: {task_name}")
+                await asyncio.sleep(20 if i > 0 else 0)
                 tasks.append(asyncio.create_task(process_crew(crew, task_name)))
+                print(f"[{datetime.now()}] Scheduled crew {i+1}/7: {task_name}")
             
+            print(f"[{datetime.now()}] Waiting for all crews to complete...")
             results = await asyncio.gather(*tasks)
+            print(f"[{datetime.now()}] All crews completed")
+            
             return {task_name: response for task_name, response in results}
             
         except Exception as e:
-            print(f"Error in run_crew_kickoffs: {e}")
+            print(f"[{datetime.now()}] Error in run_crew_kickoffs: {str(e)}")
             raise
+        finally:
+            executor.shutdown(wait=False)
+            print(f"[{datetime.now()}] Executor shutdown")
 
     # Run crew kickoffs concurrently
     global consolidated_report
