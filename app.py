@@ -565,26 +565,29 @@ async def chat():
     ### Remove to run
 
     async def run_crew_kickoffs(company_name):
-        print(f"Starting run_crew_kickoffs at {datetime.now()}")  # Added timestamp
-        executor = ThreadPoolExecutor(max_workers=7)
+        print(f"Starting run_crew_kickoffs at {datetime.now()}")
+        executor = ThreadPoolExecutor(max_workers=2)  # Only 2 workers
         
         async def process_crew(crew, task_name):
             start_time = datetime.now()
             print(f"[{start_time}] Starting crew: {task_name}")
             
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(executor, crew.kickoff)
-            
-            response_raw = format_task.output.raw
-            cleaned = response_raw.strip('```html').strip('```').strip()
-            
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-            print(f"[{end_time}] Completed crew: {task_name} (Duration: {duration}s)")
-            return task_name, escape_special_characters(cleaned)
+            try:
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(executor, crew.kickoff)
+                
+                response_raw = format_task.output.raw
+                cleaned = response_raw.strip('```html').strip('```').strip()
+                
+                end_time = datetime.now()
+                duration = (end_time - start_time).total_seconds()
+                print(f"[{end_time}] Completed crew: {task_name} (Duration: {duration}s)")
+                return task_name, escape_special_characters(cleaned)
+            except Exception as e:
+                print(f"Error in crew {task_name}: {str(e)}")
+                raise
         
         try:
-            tasks = []
             crews = [
                 (overview_crew, "overview"),
                 (scopes_crew, "scopes"),
@@ -595,18 +598,35 @@ async def chat():
                 (decarbonization_crew, "decarbonization")
             ]
             
-            for i, (crew, task_name) in enumerate(crews):
-                print(f"[{datetime.now()}] Scheduling crew {i+1}/7: {task_name}")
-                await asyncio.sleep(20 if i > 0 else 0)
-                tasks.append(asyncio.create_task(process_crew(crew, task_name)))
-                print(f"[{datetime.now()}] Scheduled crew {i+1}/7: {task_name}")
+            results = {}
+            active_tasks = []
+            remaining_crews = crews[2:]  # Store remaining crews after initial 2
             
-            print(f"[{datetime.now()}] Waiting for all crews to complete...")
-            results = await asyncio.gather(*tasks)
-            print(f"[{datetime.now()}] All crews completed")
+            # Start first 2 crews immediately
+            for crew, task_name in crews[:2]:
+                print(f"[{datetime.now()}] Scheduling initial crew: {task_name}")
+                active_tasks.append(asyncio.create_task(process_crew(crew, task_name)))
             
-            return {task_name: response for task_name, response in results}
+            # Process remaining crews as tasks complete
+            while active_tasks or remaining_crews:
+                if active_tasks:
+                    # Wait for any task to complete
+                    done, pending = await asyncio.wait(active_tasks, return_when=asyncio.FIRST_COMPLETED)
+                    active_tasks = list(pending)
+                    
+                    # Process completed tasks
+                    for task in done:
+                        task_name, result = await task
+                        results[task_name] = result
+                        
+                        # Start a new crew if any remain
+                        if remaining_crews:
+                            next_crew, next_task_name = remaining_crews.pop(0)
+                            print(f"[{datetime.now()}] Scheduling next crew: {next_task_name}")
+                            active_tasks.append(asyncio.create_task(process_crew(next_crew, next_task_name)))
             
+            return results
+                
         except Exception as e:
             print(f"[{datetime.now()}] Error in run_crew_kickoffs: {str(e)}")
             raise
